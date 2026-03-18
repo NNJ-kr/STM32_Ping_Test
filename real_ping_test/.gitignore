@@ -1,0 +1,10 @@
+Debug/
+Release/
+.settings/
+.project
+.cproject
+bin/
+obj/
+*.bak
+*.o
+*.d

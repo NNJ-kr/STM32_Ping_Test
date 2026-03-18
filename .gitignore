@@ -1,8 +1,0 @@
-# STM32 빌드 파일 무시
-Debug/
-Release/
-*.launch
-*.elf
-*.map
-*.o
-*.d
