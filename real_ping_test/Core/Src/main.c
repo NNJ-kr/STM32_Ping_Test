@@ -70,20 +70,39 @@ static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
         tcp_close(tpcb);
         return ERR_OK;
     }
-    tcp_write(tpcb, p->payload, p->len, 1);
+
+    uint8_t *data = (uint8_t *)p->payload;
+    uint16_t len = p->len;
+
+    if (len >= 15 && data[0] == 0x02 && data[1] == 0xFD && data[2] == 0x00 && data[3] == 0x05) {
+    	uint8_t responsePacket[17] = {
+    			0x02, 0xFD,
+				0x00, 0x06,
+				0x00, 0x00, 0x00, 0x09,
+				data[8], data[9],
+				0x10, 0x00,
+				0x00,
+				0x00, 0x00, 0x00, 0x00
+    	};
+
+    	tcp_write(tpcb, responsePacket, sizeof(responsePacket), TCP_WRITE_FLAG_COPY);
+    	tcp_output(tpcb);
+    }
+
+    else {
+    	tcp_write(tpcb, data, len, TCP_WRITE_FLAG_COPY);
+    	tcp_output(tpcb);
+    }
 
     tcp_recved(tpcb, p->tot_len);
-        pbuf_free(p);
+    pbuf_free(p);
 
         return ERR_OK;
     }
 
 static err_t tcp_server_accept(void *arg, struct tcp_pcb *newpcb, err_t err) {
-    // 클라이언트 접속 성공 이제부터 이 클라이언트가 데이터을 걸면 'tcp_server_recv'를 실행해라
+    // 클라이언트 접속 성공시 수신 콜백 함수 바인딩
     tcp_recv(newpcb, tcp_server_recv);
-
-    char *msg = "\r\n[DoIP OTA Board] Welcome! TCP Port 13400 Connected!\r\n";
-        tcp_write(newpcb, msg, strlen(msg), TCP_WRITE_FLAG_COPY);
 
         return ERR_OK;
     }
