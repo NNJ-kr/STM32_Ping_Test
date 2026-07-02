@@ -89,6 +89,40 @@ static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
     	tcp_output(tpcb);
     }
 
+    else if (len >= 1 && data[0] == 0x99) {
+
+    	FLASH_EraseInitTypeDef EraseInitStruct;
+    	uint32_t SectorError = 0;
+    	uint8_t erase_status = 0x00; //PC 툴로 보낼 상태값 (0x01 : 성공, 0x02 : 실패)
+
+    	HAL_FLASH_Unlock();
+
+    	//테스트용 낙서
+    	//HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, 0x08080000, 0x12345678);
+
+    	EraseInitStruct.TypeErase = FLASH_TYPEERASE_SECTORS;
+    	EraseInitStruct.VoltageRange = FLASH_VOLTAGE_RANGE_3;
+    	EraseInitStruct.Sector = FLASH_SECTOR_6;
+    	EraseInitStruct.NbSectors = 1;
+
+    	if (HAL_FLASHEx_Erase(&EraseInitStruct, &SectorError) != HAL_OK) {
+    		erase_status = 0x02; //실패시
+    	}
+    	else {
+    		erase_status = 0x01; // 성공시
+    	}
+
+
+
+    	HAL_FLASH_Lock();
+
+
+
+    	uint8_t ackPacket[2] = { 0x99, erase_status };
+    	tcp_write(tpcb, ackPacket, sizeof(ackPacket), TCP_WRITE_FLAG_COPY);
+    	tcp_output(tpcb);
+    }
+
     else {
     	tcp_write(tpcb, data, len, TCP_WRITE_FLAG_COPY);
     	tcp_output(tpcb);
