@@ -64,6 +64,8 @@ static void MX_USB_OTG_FS_PCD_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+static uint8_t expected_bsc = 1;
+
 static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err) {
     if (p == NULL) {
         // 클라이언트가 연결을 끊고 나감 (FIN)
@@ -124,15 +126,51 @@ static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
     }
 
     else {
-    	tcp_write(tpcb, data, len, TCP_WRITE_FLAG_COPY);
-    	tcp_output(tpcb);
+    	uint8_t uds_sid = data[0];
+
+    	switch (uds_sid) {
+    	case 0x36:
+    	{
+    		uint8_t received_bsc = data[1];
+
+    		if (received_bsc == expected_bsc){
+    			uint8_t pr_packet[2] = { 0x76, received_bsc};
+    			tcp_write(tpcb, pr_packet, sizeof(pr_packet), TCP_WRITE_FLAG_COPY);
+
+    			expected_bsc++;
+    		}
+    		else {
+    			uint8_t nrc_packet[3] = { 0x7F, 0x36, 0x73};
+    			tcp_write(tpcb, nrc_packet, sizeof(nrc_packet), TCP_WRITE_FLAG_COPY);
+
+    			expected_bsc = 1;
+    		}
+    		tcp_output(tpcb);
+    		break;
+    	}
+    	default:
+    		break;
+
+    	case 0x37:
+    	{
+    		HAL_FLASH_Lock();
+
+    		uint8_t pr_exit[1] = {0x77};
+    		tcp_write(tpcb, pr_exit, sizeof(pr_exit), TCP_WRITE_FLAG_COPY);
+    		tcp_output(tpcb);
+
+    		expected_bsc = 1;
+
+    		break;
+    	}
+    	}
     }
 
     tcp_recved(tpcb, p->tot_len);
     pbuf_free(p);
 
-        return ERR_OK;
-    }
+    return ERR_OK;
+}
 
 static err_t tcp_server_accept(void *arg, struct tcp_pcb *newpcb, err_t err) {
     // 클라이언트 접속 성공시 수신 콜백 함수 바인딩
