@@ -48,7 +48,7 @@ UART_HandleTypeDef huart3;
 PCD_HandleTypeDef hpcd_USB_OTG_FS;
 
 /* USER CODE BEGIN PV */
-
+uint32_t current_flash_addr = 0x08040000;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -134,6 +134,35 @@ static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
     		uint8_t received_bsc = data[1];
 
     		if (received_bsc == expected_bsc){
+    			if (received_bsc == 1) {
+    				HAL_FLASH_Unlock();
+
+    				FLASH_EraseInitTypeDef EraseInitStruct;
+    				uint32_t SectorError = 0;
+
+    				EraseInitStruct.TypeErase = FLASH_TYPEERASE_SECTORS;
+    				EraseInitStruct.Sector = FLASH_SECTOR_5;
+    				EraseInitStruct.NbSectors = 1;
+    				EraseInitStruct.VoltageRange = FLASH_VOLTAGE_RANGE_3;
+
+    				if (HAL_FLASHEx_Erase(&EraseInitStruct, &SectorError) != HAL_OK) {
+    					HAL_FLASH_Lock();
+    				}
+    			}
+    			uint8_t* payload_ptr = &data[2];
+    			uint32_t payload_len = p->tot_len - 2;
+
+    			for (uint32_t i = 0; i < payload_len; i += 4)
+    			{
+    				uint32_t word_data = (payload_ptr[i+3] << 24) |
+    									 (payload_ptr[i+2] << 16) |
+										 (payload_ptr[i+1] << 8)  |
+										 payload_ptr[i];
+
+    				HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, current_flash_addr, word_data);
+
+    				current_flash_addr += 4;
+    			}
     			uint8_t pr_packet[2] = { 0x76, received_bsc};
     			tcp_write(tpcb, pr_packet, sizeof(pr_packet), TCP_WRITE_FLAG_COPY);
 
