@@ -83,7 +83,7 @@ static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
 				0x00, 0x00, 0x00, 0x09,
 				data[8], data[9],
 				0x10, 0x00,
-				0x00,
+				0x10,                      // 응답 코드: 0x10 = Routing successfully activated  ← 0x00에서 변경
 				0x00, 0x00, 0x00, 0x00
     	};
 
